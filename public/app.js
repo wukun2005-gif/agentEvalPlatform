@@ -5,10 +5,12 @@ import { renderDashboard } from "./components/dashboard.js";
 import { renderTriage } from "./components/triage.js";
 import { renderDrift } from "./components/drift.js";
 import { renderCompliance } from "./components/compliance.js";
+import { createDemoOverlay } from "./components/demo-overlay.js";
 import "./components/settings.js";
 
 const ROUTES = {
   replay: renderReplay,
+  playground: renderReplay,
   dashboard: renderDashboard,
   triage: renderTriage,
   drift: renderDrift,
@@ -53,7 +55,7 @@ const content = document.getElementById("content");
   }
 
   window.addEventListener("hashchange", route);
-  if (!location.hash) location.hash = "#/replay";
+  if (!location.hash) location.hash = "#/playground";
   route();
 
   // Reset
@@ -65,6 +67,11 @@ const content = document.getElementById("content");
 
   // LLM Settings modal
   new SettingsModal();
+
+  // Demo overlay
+  const demo = createDemoOverlay();
+  document.getElementById("demoBtn")?.addEventListener("click", demo.startDemo);
+  document.getElementById("demoStopBtn")?.addEventListener("click", demo.stopDemo);
 })();
 
 function route() {
