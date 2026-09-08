@@ -19,6 +19,9 @@ data/settings.db-wal
 *.swp
 *.swo
 
+# AI 工作记忆(本地)
+.workbuddy/
+
 # 测试覆盖
 coverage/
 .nyc_output/
