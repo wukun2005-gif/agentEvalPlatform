@@ -89,5 +89,6 @@ module.exports = {
     "EU 合规审计近况": ["mail-C-eu-only"],
     "test-latency-fail": ["mail-A", "mail-B"],
     "员工绩效列表": ["people-D"],
+    "写一篇长文": ["mail-A"],
   },
 };

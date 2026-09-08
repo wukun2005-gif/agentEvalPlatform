@@ -16,11 +16,12 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
 
         <div class="example-pills">
           <span style="color: var(--fg-dim); font-size: 12px; align-self: center;">示例:</span>
-          <button data-q="张三最近表现">PRD 标准例 · 幻觉补全</button>
+          <button data-q="张三最近表现">幻觉补全</button>
           <button data-q="上周我们组完成了哪些项目">正常 PASS</button>
-          <button data-q="EU 合规审计近况">EU 跨租户差异</button>
-          <button data-q="test-latency-fail">latency fail</button>
-          <button data-q="员工绩效列表">Source Scoping 越权检测</button>
+          <button data-q="EU 合规审计近况">跨租户越权</button>
+          <button data-q="员工绩效列表">Source Scoping</button>
+          <button data-q="test-latency-fail">Latency 超时</button>
+          <button data-q="写一篇长文">Cost 超预算</button>
         </div>
         <p style="color: var(--fg-dim); font-size: 11px; margin-top: 8px;">
           💡 示例使用预设 fixture（确保演示效果）；自定义 query 调用你配置的 LLM

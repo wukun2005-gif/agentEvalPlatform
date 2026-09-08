@@ -38,4 +38,11 @@ module.exports = {
     llm_response: "根据员工档案,张三的绩效评级为 A,入职于 2020 年。",
     notes: "1P agent 会 source-scoping 失败(people 不在 allowedSources),3P agent 会通过。",
   },
+
+  // Cost 超预算示例
+  "写一篇长文": {
+    llm_response: "这是一篇关于人工智能发展的长文。\n\n" + "人工智能（AI）是计算机科学的一个分支，致力于创建能够执行通常需要人类智能才能完成的任务的系统。".repeat(50) + "\n\n结论：AI 将继续改变世界。",
+    usage: { prompt_tokens: 100, completion_tokens: 5000, total_tokens: 5100 },
+    notes: "故意生成超长响应(5000+ tokens)，触发 cost 评估失败。",
+  },
 };
