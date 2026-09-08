@@ -1,8 +1,6 @@
 // Playground page — 单 query 完整管线
 
-import { createDemoOverlay } from "./demo-overlay.js";
-
-let demoInstance = null;
+import { startDemo } from "./demo-overlay.js";
 
 export async function renderReplay({ mount, getTenantId, getAgentId }) {
   mount.innerHTML = `
@@ -45,11 +43,8 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
     </div>
   `;
 
-  // 初始化 demo overlay
-  if (!demoInstance) {
-    demoInstance = createDemoOverlay();
-  }
-  document.getElementById("demoBtn").addEventListener("click", demoInstance.startDemo);
+  // 绑定 demo 按钮事件
+  document.getElementById("demoBtn").addEventListener("click", startDemo);
 
   document.getElementById("qInput").addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
   document.getElementById("runBtn").addEventListener("click", run);
