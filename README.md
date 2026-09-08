@@ -1,10 +1,16 @@
 # Agent Evaluation Platform
 
-AI agent 上线前的持续生产门控平台。每次回答前自动评估，不通过则不出结果。
+企业 AI 助手平台的 agent 质量门控。平台接入各类 agent（1P/3P）向用户提供服务，但 agent 质量良莠不齐——有的会复述被 DLP 截断的敏感内容，有的会越权访问其他租户的数据。本平台在 agent 回答前自动评估，**不通过则阻止输出**，防止问题回答触达用户。
 
 ## Why
 
-现有方案（LangSmith、Braintrust、自写 CI eval）只看到 agent 的"答卷"（输入+输出），看不到 agent 是"怎么答的"：
+平台接入的 agent 来自不同团队、不同租户，质量参差不齐：
+
+- 有的 agent 复述了被 DLP 截断的内容（幻觉补全）
+- 有的 agent 跨租户拉取数据（越权访问）
+- 有的 agent 响应慢、成本高、输出格式异常
+
+现有方案（LangSmith、Braintrust）只看到 agent 的"答卷"（输入+输出），看不到 agent 是"怎么答的"——DLP 截了什么、源权限实际是什么、Trust score 怎么算的。本平台提供**过程审计**，而非只看结果。
 
 - DLP 截了什么内容？
 - 源权限实际是什么？
@@ -51,11 +57,11 @@ open http://localhost:3000
 
 **演示流程：**
 
-1. 打开 `#/replay`，点击示例 query（如"PRD 标准例 · 幻觉补全"）
-2. 观察 6 步管线逐帧执行
-3. 查看 Gate 决策（BLOCKED）和 Evidence Pack
-4. 切换到 `#/triage` 查看失败分类和修复建议
-5. 切换到 `#/dashboard` 查看整体通过率
+1. 打开 `#/playground`，点击"▶ 一键演示"
+2. 自动执行 6 个示例 query，覆盖所有评估维度
+3. 观察 6 步管线逐帧执行，查看 Gate 决策和 Evidence Pack
+4. 切换到 `#/dashboard` 查看整体通过率
+5. 切换到 `#/triage` 查看失败分类和修复建议
 
 ## LLM 配置
 
