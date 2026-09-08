@@ -18,11 +18,23 @@ function showTooltip(text, x, y) {
   if (!tooltip) return;
   tooltip.textContent = text;
   tooltip.style.display = "block";
-  // 让 tooltip 不要被屏幕边缘截掉
+
   const rect = tooltip.getBoundingClientRect();
   const margin = 10;
-  let left = x - rect.width / 2;
+  const gap = 22;
+
+  // 侧边栏元素(x 靠左)把 tooltip 摆到右侧,避免盖住 select 本身
+  // 主内容区元素(x 靠右)仍按默认的"居中偏下"摆放
+  const placeRight = x < 320 && (x + gap + rect.width + margin) < window.innerWidth;
+
+  let left;
+  if (placeRight) {
+    left = x + gap;
+  } else {
+    left = x - rect.width / 2;
+  }
   left = Math.max(margin, Math.min(left, window.innerWidth - rect.width - margin));
+
   const top = y > window.innerHeight - 80 ? y - rect.height - 14 : y + 30;
   tooltip.style.left = left + "px";
   tooltip.style.top = top + "px";
@@ -102,12 +114,15 @@ async function selectOption(elementId, value, text, waitAfter = 500) {
   if (!el) return;
   el.value = value;
   el.dispatchEvent(new Event("change", { bubbles: true }));
+  // 短暂高亮,让观众看清"当前正在确认哪个设置"
+  el.classList.add("demo-focus");
   const rect = el.getBoundingClientRect();
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
   moveCursor(x, y);
   showTooltip(text, x, y);
   await wait(waitAfter);
+  el.classList.remove("demo-focus");
 }
 
 // 高亮/取消高亮示例 pill + 对应 nav-item
@@ -175,6 +190,10 @@ async function runQuery(query, waitMs = 10000) {
   await wait(500);
   runBtn.click();
 
+  // 点完立刻收起光标 + tooltip — 管线要逐帧跑 6 步,
+  // 挂着"点击 Run 执行管线"会盖住执行过程、分散注意力
+  hideCursor();
+
   // 管线跑完(~1.2s + 网络)再等下游 streaming + render
   await wait(waitMs);
 
@@ -212,22 +231,28 @@ const DEMO_SCRIPT = [
   { action: "pointGate", text: "Gate: PASS — 7 维评估全部 ✅", wait: 3500 },
 
   // ── 示例 3:跨租户越权 ─────────────────────────
-  { action: "announce", text: "示例 3/6: 跨租户越权 — 切到 EU 租户后访问受限数据", wait: 2200 },
-  { action: "selectOption", id: "tenantId", value: "contoso-eu", text: "切换 Tenant → Contoso EU", wait: 1400 },
+  // 注意: tenant 必须保持非 EU(contoso)才命中"跨租户访问"
+  //   mail-C-eu-only 的 owner = compliance@contoso-eu
+  //   当 tenant=contoso     → ownerTenant(contoso-eu) ≠ tenant.id(contoso)     → BLOCKED ✅
+  //   当 tenant=contoso-eu  → ownerTenant(contoso-eu) === tenant.id(contoso-eu) → PASS ❌(旧 demo 反着的 bug)
+  { action: "announce", text: "示例 3/6: 跨租户越权 — Contoso 租户试图访问 EU 数据", wait: 2200 },
+  { action: "selectOption", id: "tenantId", value: "contoso", text: "确认当前 Tenant: Contoso (非 EU)", wait: 1400 },
   { action: "runQuery", query: "EU 合规审计近况", wait: 9000 },
-  { action: "pointGate", text: "Gate: BLOCKED — 1P agent 的 allowedSources 不含 EU 区域", wait: 3500 },
+  { action: "pointGate", text: "Gate: BLOCKED — source owner=contoso-eu ≠ tenant=contoso,跨租户访问被拒", wait: 3500 },
 
-  // ── 示例 4:Source Scoping ─────────────────────
+  // ── 示例 4:Source Scoping(type 越权) ──────────────
   { action: "announce", text: "示例 4/6: Source Scoping — 1P Agent 访问 people 类型被拒", wait: 2200 },
-  { action: "selectOption", id: "tenantId", value: "contoso", text: "切回 Tenant → Contoso", wait: 1000 },
   { action: "selectOption", id: "agentId", value: "my-sales-summarizer-v3", text: "确认 Agent: Sales Summarizer (1P)", wait: 1000 },
   { action: "runQuery", query: "员工绩效列表", wait: 9000 },
   { action: "pointGate", text: "Gate: BLOCKED — 1P Agent 的 allowedSources 不含 people 类型", wait: 3500 },
 
   // ── 示例 5:Latency 超时 ──────────────────────
-  { action: "announce", text: "示例 5/6: Latency 超时 — 模拟慢响应", wait: 2200 },
+  // fixture 显式声明 latency_ms: 8000,超过 5s 阈值 → latency FAIL
+  // accuracy 已通过(列表编号不再被误判为幻觉数字)→ 7 维里只有 latency 挂
+  // 这正好是平台的卖点:精确归因,不会因为"输出看着像编的"就误伤
+  { action: "announce", text: "示例 5/6: Latency 超时 — 响应 8 秒,超过 5 秒 P95 阈值", wait: 2200 },
   { action: "runQuery", query: "帮我写一份详细的技术方案文档", wait: 9000 },
-  { action: "pointGate", text: "Gate: BLOCKED — LLM 响应时间超过 5 秒阈值", wait: 3500 },
+  { action: "pointGate", text: "Gate: BLOCKED — 仅 latency 失败;accuracy 等 6 维仍通过,精确归因不误伤", wait: 3500 },
 
   // ── 示例 6:Cost 超预算(��文) ──────────────────
   { action: "announce", text: "示例 6/6: Cost 超预算(长文) — 5100 tokens,质量与成本双双告警", wait: 2200 },
@@ -380,6 +405,7 @@ function stopDemo() {
   isPlaying = false;
   clearExampleHighlight();
   document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("demo-active-page"));
+  document.querySelectorAll(".demo-focus").forEach((n) => n.classList.remove("demo-focus"));
   hideCursor();
   setProgress(0);
   const overlay = $el("demo-overlay");

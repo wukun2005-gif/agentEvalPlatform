@@ -29,9 +29,9 @@ module.exports = {
 
   // 故意制造 latency fail: 模拟慢响应
   "帮我写一份详细的技术方案文档": {
-    llm_response: "好的，这是一份详细的技术方案文档。\n\n1. 背景\n2. 目标\n3. 技术架构\n4. 实施计划\n5. 风险评估",
+    llm_response: "好的，这是一份详细的技术方案文档。\n\n一、背景\n二、目标\n三、技术架构\n四、实施计划\n五、风险评估",
     latency_ms: 8000,  // 8 秒，超过 5 秒阈值
-    notes: "模拟慢响应，触发 latency 评估失败。",
+    notes: "模拟慢响应，触发 latency 评估失败。使用中文编号避免 accuracy 误判。",
   },
 
   // 1P vs 3P source-scoping 示例

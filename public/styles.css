@@ -172,6 +172,16 @@ details pre { margin-top: 10px; }
   50%      { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.06); }
 }
 
+/* 一键演示 侧边栏 select 短暂聚焦高亮(确认 tenant / agent 时) */
+.sidebar-form select.demo-focus {
+  border-color: var(--accent) !important;
+  background: rgba(37, 99, 235, 0.1) !important;
+  color: var(--accent) !important;
+  font-weight: 600;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  animation: demo-pulse 1.2s ease-in-out infinite;
+}
+
 .fix-patch {
   background: #f1f5f9; border: 1px solid var(--border); border-radius: 6px;
   padding: 10px 12px; font-family: var(--mono); font-size: 12px;

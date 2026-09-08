@@ -2,6 +2,10 @@
 
 企业 AI 助手平台的 agent 质量评估工具。平台接入各类 agent（1P/3P）向用户提供服务，但 agent 质量良莠不齐。本平台帮助开发者在 agent **上线前**发现潜在问题：DLP 幻觉补全、跨租户越权、响应超时等。
 
+<p align="center">
+  <img src="assets/demo.gif" alt="agentEvaluator 一键演示 — 6 步管线 + 7 维评估 + Evidence Pack + Triage + Drift" width="800">
+</p>
+
 ## Why
 
 平台接入的 agent 来自不同团队、不同租户，质量参差不齐：
