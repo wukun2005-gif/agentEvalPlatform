@@ -5,7 +5,7 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
 
   mount.innerHTML = `
     <div class="page">
-      <h1>▶ Replay · 单 query 完整管线回放</h1>
+      <h1>▶ Playground · 单 query 完整管线</h1>
       <p class="page-sub">输入 query → <b>逐帧</b>走完 6 步管线 → 看到 Gate 决策 + Evidence Pack</p>
 
       <div class="card">
