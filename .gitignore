@@ -1,0 +1,28 @@
+# 依赖
+node_modules/
+
+# 运行时数据(自动生成)
+data/state.json
+data/settings.db
+data/settings.db-shm
+data/settings.db-wal
+
+# 敏感配置
+.env
+.env.local
+.env.*.local
+
+# IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 测试覆盖
+coverage/
+.nyc_output/
+
+# 日志
+*.log
+npm-debug.log*

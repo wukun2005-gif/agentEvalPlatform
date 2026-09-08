@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>agentEvaluator</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%96%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">⚖</span>
+      <span class="brand-name">agentEvaluator</span>
+      <span class="brand-sub">Realtime Eval Gate · tenant-internal</span>
+    </div>
+    <div class="topbar-right">
+      <div class="status">
+        <span class="dot" id="modeDot"></span>
+        <span id="modeLabel">checking…</span>
+      </div>
+      <button id="resetBtn" class="reset" title="清空 state 重新 seed">↻ Reset</button>
+    </div>
+  </header>
+
+  <div class="app">
+    <nav class="sidebar">
+      <a href="#/replay" data-page="replay" class="nav-item active">
+        <span class="nav-icon">▶</span><span>Replay</span>
+      </a>
+      <a href="#/dashboard" data-page="dashboard" class="nav-item">
+        <span class="nav-icon">📊</span><span>Dashboard</span>
+      </a>
+      <a href="#/triage" data-page="triage" class="nav-item">
+        <span class="nav-icon">🩺</span><span>Triage</span>
+      </a>
+      <a href="#/drift" data-page="drift" class="nav-item">
+        <span class="nav-icon">📈</span><span>Drift</span>
+      </a>
+      <a href="#/compliance" data-page="compliance" class="nav-item">
+        <span class="nav-icon">📋</span><span>Evidence Pack</span>
+      </a>
+      <div class="sidebar-section">Settings</div>
+      <div class="sidebar-form">
+        <label>Tenant</label>
+        <select id="tenantId"></select>
+        <label>Agent</label>
+        <select id="agentId"></select>
+      </div>
+
+      <div class="sidebar-section">LLM</div>
+      <div class="sidebar-form" id="llmConfig">
+        <div id="llmStatus" style="font-size: 11px; color: var(--fg-dim); font-family: var(--mono); margin-bottom: 6px;">checking…</div>
+        <button id="openSettingsBtn" class="reset" style="font-size: 11px; padding: 4px 8px; width: 100%; text-align: center;">⚙ LLM Settings</button>
+      </div>
+    </nav>
+
+    <main class="content" id="content">
+      <!-- 由 app.js 路由到 5 个 component -->
+    </main>
+  </div>
+
+  <script src="/app.js" type="module"></script>
+
+  <!-- LLM Settings Modal (照抄 appUIRefiner Settings UI:每 provider 一张卡片) -->
+  <div id="settingsModal" class="settings-overlay" hidden>
+    <div class="settings">
+      <header class="settings-head">
+        <h2>模型设置</h2>
+        <p class="hint">
+          与 appUIRefiner 相同的配置体系：填写 Key → 勾选模型（勾选顺序即回退链）→ 设默认 → 验证。
+          卡片和回退链均支持<b>拖拽排序</b>。所有输入<b>自动保存到服务端</b>（停顿约 1 秒即写入，刷新/重启不丢），本机另有草稿兜底。
+        </p>
+        <button id="closeSettingsBtn" class="ghost close" style="margin-left: auto;">✕ 关闭</button>
+      </header>
+      <div class="provider-list">
+        <!-- 动态生成 provider 卡片 -->
+      </div>
+      <footer class="settings-foot">
+        <button id="loadModelsBtn" class="ghost small">🔄 Load Live Models</button>
+        <button id="resetSettingsBtn" class="ghost small">🗑 Clear All</button>
+        <button id="saveSettingsBtn" class="primary">💾 Save All</button>
+      </footer>
+      <div id="saveStatus" style="margin-top: 8px; font-size: 12px; min-height: 18px;"></div>
+    </div>
+  </div>
+</body>
+</html>
