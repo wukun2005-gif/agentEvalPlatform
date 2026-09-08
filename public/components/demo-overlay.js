@@ -1,21 +1,35 @@
 // DemoOverlay — 一键演示的光标 + Tooltip + 进度条
+//
+// 关键设计:
+//   1. 切页用 "#/page"(与 app.js 的 route() 期望一致,旧版用了 "#page" 永远切不过去)
+//   2. 切页后等待目标页面挂载完成(dashboard / triage / drift 都是异步渲染)
+//   3. Tooltip 不再全部塞屏幕中央 — 跟随光标指向具体元素:
+//        - runQuery 后 → 指向 Gate badge + Evidence Pack 摘要
+//        - nav 切页后 → 指向左侧对应 nav-item
+//   4. 高亮当前示例 pill + 当前页面 nav-item,让观众能跟上节奏
 
 let isPlaying = false;
 
+function $(sel) { return document.querySelector(sel); }
+function $el(id) { return document.getElementById(id); }
+
 function showTooltip(text, x, y) {
-  const tooltip = document.getElementById("demo-tooltip");
+  const tooltip = $el("demo-tooltip");
   if (!tooltip) return;
   tooltip.textContent = text;
   tooltip.style.display = "block";
+  // 让 tooltip 不要被屏幕边缘截掉
   const rect = tooltip.getBoundingClientRect();
-  const left = Math.max(10, Math.min(x - rect.width / 2, window.innerWidth - rect.width - 10));
-  const top = y > window.innerHeight - 80 ? y - 48 : y + 30;
+  const margin = 10;
+  let left = x - rect.width / 2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - rect.width - margin));
+  const top = y > window.innerHeight - 80 ? y - rect.height - 14 : y + 30;
   tooltip.style.left = left + "px";
   tooltip.style.top = top + "px";
 }
 
 function moveCursor(x, y) {
-  const cursor = document.getElementById("demo-cursor");
+  const cursor = $el("demo-cursor");
   if (!cursor) return;
   cursor.style.display = "block";
   cursor.style.left = (x - 12) + "px";
@@ -23,29 +37,36 @@ function moveCursor(x, y) {
 }
 
 function hideCursor() {
-  const cursor = document.getElementById("demo-cursor");
-  const tooltip = document.getElementById("demo-tooltip");
+  const cursor = $el("demo-cursor");
+  const tooltip = $el("demo-tooltip");
   if (cursor) cursor.style.display = "none";
   if (tooltip) tooltip.style.display = "none";
 }
 
 function setProgress(pct) {
-  const bar = document.getElementById("demo-progress-bar");
+  const bar = $el("demo-progress-bar");
   if (bar) bar.style.width = pct + "%";
 }
 
-function wait(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function checkCancelled() { if (!isPlaying) throw new Error("__CANCELLED__"); }
 
-function checkCancelled() {
-  if (!isPlaying) throw new Error("__CANCELLED__");
-}
-
-async function moveTo(x, y, text, waitMs = 1500) {
+// 把光标 + tooltip 摆到元素中心;元素不存在就退到屏幕中心
+async function pointTo(elOrSelector, text, waitMs = 1500) {
   checkCancelled();
-  moveCursor(x, y);
-  showTooltip(text, x, y);
+  const el = typeof elOrSelector === "string" ? $(elOrSelector) : elOrSelector;
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    await wait(450);
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    moveCursor(x, y);
+    showTooltip(text, x, y);
+  } else {
+    await moveToCenter(text, waitMs);
+    return;
+  }
   await wait(waitMs);
 }
 
@@ -60,25 +81,24 @@ async function moveToCenter(text, waitMs = 2000) {
 
 async function moveAndClick(elementId, text, waitAfter = 1500) {
   checkCancelled();
-  const el = document.getElementById(elementId);
+  const el = $el(elementId);
   if (!el) return false;
   el.scrollIntoView({ behavior: "smooth", block: "center" });
-  await wait(500);
+  await wait(450);
   const rect = el.getBoundingClientRect();
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
   moveCursor(x, y);
   showTooltip(text, x, y);
-  await wait(500);
+  await wait(450);
   el.click();
   await wait(waitAfter);
   return true;
 }
 
-// 切换 select 值
 async function selectOption(elementId, value, text, waitAfter = 500) {
   checkCancelled();
-  const el = document.getElementById(elementId);
+  const el = $el(elementId);
   if (!el) return;
   el.value = value;
   el.dispatchEvent(new Event("change", { bubbles: true }));
@@ -90,124 +110,183 @@ async function selectOption(elementId, value, text, waitAfter = 500) {
   await wait(waitAfter);
 }
 
-// 运行 query 并等待完成
+// 高亮/取消高亮示例 pill + 对应 nav-item
+function highlightExample(query) {
+  document.querySelectorAll(".example-pills button").forEach((b) => {
+    b.classList.toggle("demo-active-example", b.dataset.q === query);
+  });
+}
+function clearExampleHighlight() {
+  document.querySelectorAll(".example-pills button").forEach((b) => b.classList.remove("demo-active-example"));
+}
+function highlightPage(page) {
+  document.querySelectorAll(".nav-item").forEach((n) => {
+    n.classList.toggle("demo-active-page", n.dataset.page === page);
+  });
+}
+
+// 切页后等待目标页面的核心 DOM 挂载(防止 tooltip 在渲染前出现)
+async function waitForPage(page, maxMs = 4000) {
+  const target = ({
+    playground: () => $el("qInput"),
+    dashboard: () => $el("dashContent") && $el("dashContent").children.length > 0,
+    triage: () => $el("triageContent") && $el("triageContent").children.length > 0,
+    drift: () => $el("driftContent") && $el("driftContent").children.length > 0,
+    compliance: () => $el("complianceContent"),
+  })[page];
+  if (!target) return;
+  const t0 = Date.now();
+  while (Date.now() - t0 < maxMs) {
+    try {
+      const r = target();
+      if (r && r !== false) return;
+    } catch { /* ignore */ }
+    await wait(80);
+  }
+}
+
+// 运行 query 并等管线完成(SSE 流式)
 async function runQuery(query, waitMs = 10000) {
   checkCancelled();
-  const input = document.getElementById("qInput");
-  const runBtn = document.getElementById("runBtn");
+  const input = $el("qInput");
+  const runBtn = $el("runBtn");
   if (!input || !runBtn) return;
-  
-  // 移动光标到 input
+
+  // 高亮当前示例 pill(让观众跟得上)
+  highlightExample(query);
+
+  // 光标移动到 input,提示 query 内容
   input.scrollIntoView({ behavior: "smooth", block: "center" });
   await wait(300);
   const inputRect = input.getBoundingClientRect();
   moveCursor(inputRect.left + inputRect.width / 2, inputRect.top + inputRect.height / 2);
-  showTooltip("输入: " + query, inputRect.left + inputRect.width / 2, inputRect.top);
-  await wait(1000);
-  
-  // 设置值并点击
+  showTooltip(`输入: "${query}"`, inputRect.left + inputRect.width / 2, inputRect.top);
+  await wait(900);
+
+  // 设置值
   input.value = query;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  await wait(500);
-  
-  // 移动光标到 Run 按钮
+  await wait(400);
+
+  // 光标到 Run
   const btnRect = runBtn.getBoundingClientRect();
   moveCursor(btnRect.left + btnRect.width / 2, btnRect.top + btnRect.height / 2);
   showTooltip("点击 Run 执行管线", btnRect.left + btnRect.width / 2, btnRect.top);
   await wait(500);
   runBtn.click();
-  
-  // 等待管线执行
+
+  // 管线跑完(~1.2s + 网络)再等下游 streaming + render
   await wait(waitMs);
+
+  // 滚到 gate badge,把 tooltip 钉在那里 — 观众的注意力应该落在结果上,不是屏幕中央
+  const gateBadge = $el("resultHead")?.querySelector(".gate-badge");
+  if (gateBadge) {
+    gateBadge.scrollIntoView({ behavior: "smooth", block: "center" });
+    await wait(450);
+  }
 }
 
 // 主演示脚本
 const DEMO_SCRIPT = [
   // ═══════════════════════════════════════════════
-  //  第一部分：Playground 演示（约 90 秒）
+  //  第一部分:Playground 演示(约 90 秒)
   // ═══════════════════════════════════════════════
-  
+
   // 0. 开场
   { action: "center", text: "Agent Evaluation Platform — 企业 AI 助手的 agent 质量门控", wait: 3000 },
 
   // 1. 进入 Playground
   { action: "nav", page: "playground" },
-  { action: "wait", ms: 1500 },
-  { action: "center", text: "输入 query，agent 会自动执行 6 步管线评估", wait: 2000 },
+  { action: "waitForPage", page: "playground" },
+  { action: "wait", ms: 1200 },
+  { action: "center", text: "输入 query,agent 会自动执行 6 步管线评估", wait: 2000 },
 
-  // ── 示例 1：幻觉补全 ─────────────────────────
-  { action: "center", text: "示例 1/6: 幻觉补全 — LLM 复述被 DLP 截断的内容", wait: 2000 },
-  { action: "runQuery", query: "张三最近表现", wait: 10000 },
-  { action: "center", text: "Gate: BLOCKED — LLM 输出了被 DLP 截断的「绩效 A」「涨薪 8%」", wait: 3500 },
+  // ── 示例 1:幻觉补全 ──────��──────────────────
+  { action: "announce", text: "示例 1/6: 幻觉补全 — LLM 复述了被 DLP 截断的内容", wait: 2200 },
+  { action: "runQuery", query: "张三最近表现", wait: 9000 },
+  { action: "pointGate", text: "Gate: BLOCKED — DLP 检测到 LLM 输出了被截断的「绩效 A」「涨薪 8%」", wait: 3500 },
 
-  // ── 示例 2：正常 PASS ─────────────────────────
-  { action: "center", text: "示例 2/6: 正常 PASS — 所有评估通过", wait: 2000 },
-  { action: "runQuery", query: "上周我们组完成了哪些项目", wait: 10000 },
-  { action: "center", text: "Gate: PASS — 输出与输入一致，无违规", wait: 3500 },
+  // ── 示例 2:正常 PASS ─────────────────────────
+  { action: "announce", text: "示例 2/6: 正常 PASS — 所有评估通过", wait: 2200 },
+  { action: "runQuery", query: "上周我们组完成了哪些项目", wait: 9000 },
+  { action: "pointGate", text: "Gate: PASS — 7 维评估全部 ✅", wait: 3500 },
 
-  // ── 示例 3：跨租户越权 ─────────────────────────
-  { action: "center", text: "示例 3/6: 跨租户越权 — 切换到 EU 租户", wait: 2000 },
-  { action: "selectOption", id: "tenantId", value: "contoso-eu", text: "切换 Tenant → Contoso EU", wait: 1500 },
-  { action: "runQuery", query: "EU 合规审计近况", wait: 10000 },
-  { action: "center", text: "Gate: BLOCKED — EU 租户的 PII 数据被不当访问", wait: 3500 },
+  // ── 示例 3:跨租户越权 ─────────────────────────
+  { action: "announce", text: "示例 3/6: 跨租户越权 — 切到 EU 租户后访问受限数据", wait: 2200 },
+  { action: "selectOption", id: "tenantId", value: "contoso-eu", text: "切换 Tenant → Contoso EU", wait: 1400 },
+  { action: "runQuery", query: "EU 合规审计近况", wait: 9000 },
+  { action: "pointGate", text: "Gate: BLOCKED — 1P agent 的 allowedSources 不含 EU 区域", wait: 3500 },
 
-  // ── 示例 4：Source Scoping ─────────────────────
-  { action: "center", text: "示例 4/6: Source Scoping — 1P Agent 权限越权", wait: 2000 },
-  { action: "selectOption", id: "tenantId", value: "contoso", text: "切换回 Tenant → Contoso", wait: 1000 },
+  // ── 示例 4:Source Scoping ─────────────────────
+  { action: "announce", text: "示例 4/6: Source Scoping — 1P Agent 访问 people 类型被拒", wait: 2200 },
+  { action: "selectOption", id: "tenantId", value: "contoso", text: "切回 Tenant → Contoso", wait: 1000 },
   { action: "selectOption", id: "agentId", value: "my-sales-summarizer-v3", text: "确认 Agent: Sales Summarizer (1P)", wait: 1000 },
-  { action: "runQuery", query: "员工绩效列表", wait: 10000 },
-  { action: "center", text: "Gate: BLOCKED — 1P Agent 的 allowedSources 不含 people 类型", wait: 3500 },
+  { action: "runQuery", query: "员工绩效列表", wait: 9000 },
+  { action: "pointGate", text: "Gate: BLOCKED — 1P Agent 的 allowedSources 不含 people 类型", wait: 3500 },
 
-  // ── 示例 5：Latency 超时 ──────────────────────
-  { action: "center", text: "示例 5/6: Latency 超时", wait: 2000 },
-  { action: "runQuery", query: "test-latency-fail", wait: 10000 },
-  { action: "center", text: "Gate: BLOCKED — 响应时间超过阈值", wait: 3500 },
+  // ── 示例 5:Latency 超时 ──────────────────────
+  { action: "announce", text: "示例 5/6: Latency 超时 — 模拟慢响应", wait: 2200 },
+  { action: "runQuery", query: "帮我写一份详细的技术方案文档", wait: 9000 },
+  { action: "pointGate", text: "Gate: BLOCKED — LLM 响应时间超过 5 秒阈值", wait: 3500 },
 
-  // ── 示例 6：Cost 超预算 ───────────────────────
-  { action: "center", text: "示例 6/6: Cost 超预算", wait: 2000 },
-  { action: "runQuery", query: "写一篇长文", wait: 10000 },
-  { action: "center", text: "Gate: BLOCKED — Token 消耗超过预算", wait: 3500 },
+  // ── 示例 6:Cost 超预算(��文) ──────────────────
+  { action: "announce", text: "示例 6/6: Cost 超预算(长文) — 5100 tokens,质量与成本双双告警", wait: 2200 },
+  { action: "runQuery", query: "写一篇长文", wait: 9000 },
+  { action: "pointGate", text: "Gate: BLOCKED — Cost 5100 tokens + Quality 检测到重复内容", wait: 3500 },
 
   // ═══════════════════════════════════════════════
-  //  第二部分：Evidence Pack（约 15 秒）
+  //  第二部分:Evidence Pack(约 15 秒)
   // ═══════════════════════════════════════════════
-  
-  { action: "center", text: "每个评估都生成 Evidence Pack — 合规审计记录", wait: 2500 },
+
+  { action: "pointEvPack", text: "每次评估都生成 Evidence Pack — 合规官可直接签字的审计记录", wait: 2500 },
   { action: "scroll", id: "evPackDetails" },
   { action: "wait", ms: 1000 },
-  { action: "center", text: "记录了完整的决策过程：拉源 → DLP → LLM → Trust → 评估 → Gate", wait: 3500 },
+  { action: "pointEvPack", text: "记录了完整决策过程: 拉源 → DLP → LLM → Trust → 评估 → Gate", wait: 3500 },
 
   // ═══════════════════════════════════════════════
-  //  第三部分：Dashboard（约 15 秒）
+  //  第三部分:Dashboard(约 20 秒)
   // ═══════════════════════════════════════════════
-  
+
   { action: "nav", page: "dashboard" },
-  { action: "wait", ms: 1500 },
-  { action: "center", text: "Dashboard — 查看所有 agent 的整体健康度", wait: 2500 },
-  { action: "center", text: "通过率、失败分布、最近失败一目了然", wait: 3500 },
+  { action: "waitForPage", page: "dashboard" },
+  { action: "wait", ms: 1200 },
+  { action: "pointStat", text: "Dashboard — 所有 agent 的整体健康度", wait: 2500 },
+  { action: "pointStat", text: "通过率、24h 趋势、最近失败一目了然", wait: 3500 },
 
   // ═══════════════════════════════════════════════
-  //  第四部分：Triage（约 15 秒）
+  //  第四部分:Triage(约 15 秒)
   // ═══════════════════════════════════════════════
-  
+
   { action: "nav", page: "triage" },
-  { action: "wait", ms: 1500 },
-  { action: "center", text: "Triage — 失败自动分类，附修复建议", wait: 2500 },
-  { action: "center", text: "从「翻 trace 找根因」降到「审草稿决定采纳」", wait: 3500 },
+  { action: "waitForPage", page: "triage" },
+  { action: "wait", ms: 1200 },
+  { action: "pointTriage", text: "Triage — 失败自动分类 + 修复草稿", wait: 2500 },
+  { action: "pointTriage", text: "从「翻 trace 找根因」降到「审草稿决定采纳」", wait: 3500 },
 
   // ═══════════════════════════════════════════════
-  //  结尾（约 5 秒）
+  //  第五部分:Drift(约 15 秒)
   // ═══════════════════════════════════════════════
-  
-  { action: "center", text: "6 步管线 · 7 维评估 · Evidence Pack · 自动 Triage", wait: 2500 },
-  { action: "center", text: "Agent Evaluation Platform — 让每个 agent 的回答都可审计", wait: 2500 },
+
+  { action: "nav", page: "drift" },
+  { action: "waitForPage", page: "drift" },
+  { action: "wait", ms: 1200 },
+  { action: "pointDrift", text: "Drift — 跨时间 / 模型 / 租户的通过率漂移", wait: 2500 },
+  { action: "pointDrift", text: "平台先于客户发现衰退:告警 + 候选根因", wait: 3500 },
+
+  // ═══════════════════════════════════════════════
+  //  结尾(约 5 秒)
+  // ═══════════════════════════════════════════════
+
+  { action: "clearHighlights" },
+  { action: "center", text: "6 步管线 · 7 维评估 · Evidence Pack · 自动 Triage · Drift 监控", wait: 2800 },
+  { action: "center", text: "Agent Evaluation Platform — 让每个 agent 的回答都可审计", wait: 2800 },
 ];
 
 async function runDemo() {
   if (isPlaying) return;
   isPlaying = true;
 
-  const clickCatcher = document.getElementById("demo-click-catcher");
+  const clickCatcher = $el("demo-click-catcher");
   if (clickCatcher) clickCatcher.onclick = stopDemo;
 
   const totalPages = DEMO_SCRIPT.length;
@@ -223,9 +302,22 @@ async function runDemo() {
         case "center":
           await moveToCenter(step.text, step.wait || 2000);
           break;
+        case "announce":
+          await moveToCenter(step.text, step.wait || 2000);
+          // 顺便高亮当前 demo 主题 — 通过文本里带"示例 N/6"匹配 pill
+          const m = step.text.match(/示例\s*(\d)\/(\d)/);
+          if (m) {
+            const order = ["张三最近表现", "上周我们组完成了哪些项目", "EU 合规审计近况", "员工绩效列表", "帮我写一份详细的技术方案文档", "写一篇长文"];
+            highlightExample(order[parseInt(m[1]) - 1]);
+          }
+          break;
         case "nav":
-          window.location.hash = "#" + step.page;
-          await wait(1000);
+          highlightPage(step.page);
+          // 重要: 用 "#/page" 才会被 route() 识别
+          window.location.hash = "#/" + step.page;
+          break;
+        case "waitForPage":
+          await waitForPage(step.page, step.max || 4000);
           break;
         case "click":
           await moveAndClick(step.id, step.text, step.wait || 1000);
@@ -234,16 +326,47 @@ async function runDemo() {
           await selectOption(step.id, step.value, step.text, step.wait || 500);
           break;
         case "runQuery":
-          await runQuery(step.query, step.wait || 8000);
+          await runQuery(step.query, step.wait || 9000);
+          break;
+        case "pointGate": {
+          const gateBadge = $el("resultHead")?.querySelector(".gate-badge");
+          if (gateBadge) await pointTo(gateBadge, step.text, step.wait || 3000);
+          else await moveToCenter(step.text, step.wait || 3000);
+          break;
+        }
+        case "pointEvPack":
+          await pointTo("#evPackDetails", step.text, step.wait || 2500);
+          break;
+        case "pointStat": {
+          const stat = $(".stat-tile") || $(".stat-grid");
+          if (stat) await pointTo(stat, step.text, step.wait || 2500);
+          else await moveToCenter(step.text, step.wait || 2500);
+          break;
+        }
+        case "pointTriage": {
+          const t = $(".card h2") || $el("triageContent");
+          if (t) await pointTo(t, step.text, step.wait || 2500);
+          else await moveToCenter(step.text, step.wait || 2500);
+          break;
+        }
+        case "pointDrift": {
+          const d = $el("driftContent")?.querySelector(".alert") || $el("driftContent");
+          if (d) await pointTo(d, step.text, step.wait || 2500);
+          else await moveToCenter(step.text, step.wait || 2500);
+          break;
+        }
+        case "clearHighlights":
+          clearExampleHighlight();
           break;
         case "wait":
           await wait(step.ms);
           break;
-        case "scroll":
-          const el = document.getElementById(step.id);
+        case "scroll": {
+          const el = $el(step.id);
           if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-          await wait(1000);
+          await wait(900);
           break;
+        }
       }
     }
   } catch (err) {
@@ -255,15 +378,16 @@ async function runDemo() {
 
 function stopDemo() {
   isPlaying = false;
+  clearExampleHighlight();
+  document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("demo-active-page"));
   hideCursor();
   setProgress(0);
-  const overlay = document.getElementById("demo-overlay");
+  const overlay = $el("demo-overlay");
   if (overlay) overlay.style.display = "none";
 }
 
 function startDemo() {
-  // 确保 overlay 存在
-  let overlay = document.getElementById("demo-overlay");
+  let overlay = $el("demo-overlay");
   if (!overlay) {
     overlay = document.createElement("div");
     overlay.id = "demo-overlay";
@@ -272,7 +396,7 @@ function startDemo() {
       <div id="demo-progress" style="position:fixed;top:0;left:0;width:100%;height:3px;background:rgba(0,0,0,0.1);z-index:9998;">
         <div id="demo-progress-bar" style="height:100%;width:0;background:linear-gradient(90deg,#3b82f6,#6366f1);transition:width 0.3s;"></div>
       </div>
-      <div id="demo-tooltip" style="position:fixed;z-index:9999;background:linear-gradient(135deg,rgba(59,130,246,0.95),rgba(99,102,241,0.95));color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;max-width:400px;text-align:center;pointer-events:none;box-shadow:0 4px 20px rgba(59,130,246,0.3);display:none;"></div>
+      <div id="demo-tooltip" style="position:fixed;z-index:9999;background:linear-gradient(135deg,rgba(59,130,246,0.95),rgba(99,102,241,0.95));color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;max-width:380px;text-align:center;pointer-events:none;box-shadow:0 4px 20px rgba(59,130,246,0.3);display:none;line-height:1.5;"></div>
       <div id="demo-cursor" style="position:fixed;z-index:9999;pointer-events:none;transition:all 0.5s cubic-bezier(0.16,1,0.3,1);display:none;">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M4 2L20 10.6667L12 13L10 21L4 2Z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
@@ -285,7 +409,6 @@ function startDemo() {
   runDemo();
 }
 
-// ESC 停止
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && isPlaying) stopDemo();
 });

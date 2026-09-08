@@ -147,6 +147,31 @@ details pre { margin-top: 10px; }
 .example-pills button { font-size: 12px; padding: 4px 10px; background: var(--panel-2); border: 1px dashed var(--border); }
 .example-pills button:hover { border-style: solid; border-color: var(--accent); }
 
+/* 一键演示 当前示例高亮 */
+.example-pills button.demo-active-example {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  color: var(--accent);
+  font-weight: 600;
+  animation: demo-pulse 1.6s ease-in-out infinite;
+}
+
+/* 一键演示 当前页面高亮 */
+.nav-item.demo-active-page {
+  background: rgba(59, 130, 246, 0.14) !important;
+  color: var(--accent) !important;
+  border-left-color: var(--accent) !important;
+  box-shadow: inset 3px 0 0 var(--accent);
+  animation: demo-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes demo-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18); }
+  50%      { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.06); }
+}
+
 .fix-patch {
   background: #f1f5f9; border: 1px solid var(--border); border-radius: 6px;
   padding: 10px 12px; font-family: var(--mono); font-size: 12px;

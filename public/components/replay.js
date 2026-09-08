@@ -23,7 +23,7 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
           <button data-q="上周我们组完成了哪些项目">正常 PASS</button>
           <button data-q="EU 合规审计近况">跨租户越权</button>
           <button data-q="员工绩效列表">Source Scoping</button>
-          <button data-q="test-latency-fail">Latency 超时</button>
+          <button data-q="帮我写一份详细的技术方案文档">Latency 超时</button>
           <button data-q="写一篇长文">Cost 超预算</button>
         </div>
         <p style="color: var(--fg-dim); font-size: 11px; margin-top: 8px;">
@@ -50,6 +50,20 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
   document.getElementById("runBtn").addEventListener("click", run);
   document.querySelectorAll(".example-pills button").forEach((b) => {
     b.addEventListener("click", () => { document.getElementById("qInput").value = b.dataset.q; });
+  });
+
+  // 委托: 展开/收起 LLM 输出 + context
+  document.getElementById("resultCard").addEventListener("click", (e) => {
+    const a = e.target.closest(".demo-llm-more");
+    if (!a) return;
+    const wrap = a.parentElement;
+    const tail = wrap.querySelector(".demo-llm-tail");
+    if (!tail) return;
+    // 首次点击时记录"展开"文案,方便收起后还原
+    if (!a.dataset.expandLabel) a.dataset.expandLabel = a.textContent;
+    const willExpand = tail.hidden;
+    tail.hidden = !willExpand;
+    a.textContent = willExpand ? "收起" : a.dataset.expandLabel;
   });
 
   async function run() {
@@ -163,21 +177,40 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
         return html;
       }
       case "llm": {
-        const out = step.data.content;
+        const out = step.data.content || "";
         const llmInput = step.data.llmInput || "";
-        const highlighted = out
+        const latencyMs = step.data.latency_ms;
+        // 截断:太长的响应(故意失败 fixture / 真实长文)默认折叠,避免撑爆页面
+        const COLLAPSE_AT = 280;
+        const needsCollapse = out.length > COLLAPSE_AT;
+        // 高亮"幻觉补全"特征串(只对截断后的片段生效,不影响性能)
+        const highlight = (s) => s
           .replace(/绩效 A/g, '<span class="hallucinated">绩效 A</span>')
           .replace(/涨薪 8%/g, '<span class="hallucinated">涨薪 8%</span>');
-        let html = `<b>source:</b> ${step.data.source} · <b>model:</b> ${step.data.model || "?"} · <b>${step.data.latency_ms}ms</b>`;
-        
+        const head = highlight(escapeHtml(out.slice(0, COLLAPSE_AT)));
+        const tail = highlight(escapeHtml(out.slice(COLLAPSE_AT)));
+        let html = `<b>source:</b> ${escapeHtml(step.data.source || "?")} · <b>model:</b> ${escapeHtml(step.data.model || "?")} · <b>${latencyMs ?? "?"}ms</b>`;
+        if (latencyMs >= 5000) {
+          html += ` <span class="hallucinated" title="P95 target &lt; 5000ms">⚠ 超时</span>`;
+        }
+
         // 显示 LLM 输入 context
         if (llmInput) {
-          html += `\n<details style="margin-top: 6px;"><summary style="cursor: pointer; color: var(--fg-dim); font-size: 11px;">查看 LLM 输入 context</summary>`;
-          html += `<div style="margin-top: 4px; padding: 8px; background: var(--panel); border-radius: 4px; font-size: 11px; white-space: pre-wrap;">${escapeHtml(llmInput)}</div>`;
+          html += `\n<details style="margin-top: 6px;"><summary style="cursor: pointer; color: var(--fg-dim); font-size: 11px;">查看 LLM 输入 context (${llmInput.length} chars)</summary>`;
+          const inputHead = escapeHtml(llmInput.slice(0, 800));
+          const inputTail = escapeHtml(llmInput.slice(800));
+          html += `<div style="margin-top: 4px; padding: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; white-space: pre-wrap; max-height: 240px; overflow: auto;">${inputHead}${inputTail ? `<span class="demo-llm-tail" hidden>${inputTail}</span><a class="demo-llm-more" style="color: var(--accent); cursor: pointer;">…展开 (${llmInput.length - 800} chars)</a>` : ""}</div>`;
           html += `</details>`;
         }
-        
-        html += `\n${highlighted}`;
+
+        // 输出区:默认折叠 + 总有 max-height 兜底,即使展开也不会撑爆页面
+        const totalLen = out.length;
+        html += `\n<div class="llm-output" style="margin-top: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; font-size: 12px; line-height: 1.6; max-height: 240px; overflow: auto;">`;
+        html += head;
+        if (needsCollapse) {
+          html += `<span class="demo-llm-tail" hidden>${tail}</span><a class="demo-llm-more" style="color: var(--accent); cursor: pointer;">…展开 (${totalLen - COLLAPSE_AT} chars)</a>`;
+        }
+        html += `</div>`;
         return html;
       }
       case "trust": return step.data.source;
