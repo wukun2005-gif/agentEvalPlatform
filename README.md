@@ -64,8 +64,6 @@ open http://localhost:3000
 - **示例 Query** → 使用预设 fixture（确保演示效果）
 - **自定义 Query** → 调用你配置的 LLM
 
-支持 15 家 LLM Provider（OpenAI、Anthropic、DeepSeek、Qwen、GLM 等）。
-
 ## Tech Stack
 
 - **Runtime**: Node.js + Express
