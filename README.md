@@ -6,6 +6,10 @@
   <img src="assets/demo.gif" alt="agentEvaluator 一键演示 — 6 步管线 + 7 维评估 + Evidence Pack + Triage + Drift" width="800">
 </p>
 
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV1neb56EEsp/">📺 完整 Demo 视频</a>
+</p>
+
 ## Why
 
 平台接入的 agent 来自不同团队、不同租户，质量参差不齐：
