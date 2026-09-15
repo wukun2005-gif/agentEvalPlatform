@@ -36,6 +36,21 @@ html, body {
 .brand-name { font-weight: 700; font-size: 16px; letter-spacing: 0.3px; }
 .brand-sub { color: var(--fg-dim); font-size: 12px; border-left: 1px solid var(--border); padding-left: 10px; }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
+.lang-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.lang-btn:hover {
+  background: #2f7ce0;
+  transform: scale(1.05);
+}
 .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-dim); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; }
 .dot.live { background: var(--pass); }

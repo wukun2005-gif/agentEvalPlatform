@@ -8,6 +8,8 @@
 //        - nav 切页后 → 指向左侧对应 nav-item
 //   4. 高亮当前示例 pill + 当前页面 nav-item,让观众能跟上节奏
 
+import { t, exampleQueries } from "../i18n.js";
+
 let isPlaying = false;
 
 function $(sel) { return document.querySelector(sel); }
@@ -175,7 +177,7 @@ async function runQuery(query, waitMs = 10000) {
   await wait(300);
   const inputRect = input.getBoundingClientRect();
   moveCursor(inputRect.left + inputRect.width / 2, inputRect.top + inputRect.height / 2);
-  showTooltip(`输入: "${query}"`, inputRect.left + inputRect.width / 2, inputRect.top);
+  showTooltip(`${t('demoInput')} "${query}"`, inputRect.left + inputRect.width / 2, inputRect.top);
   await wait(900);
 
   // 设置值
@@ -186,7 +188,7 @@ async function runQuery(query, waitMs = 10000) {
   // 光标到 Run
   const btnRect = runBtn.getBoundingClientRect();
   moveCursor(btnRect.left + btnRect.width / 2, btnRect.top + btnRect.height / 2);
-  showTooltip("点击 Run 执行管线", btnRect.left + btnRect.width / 2, btnRect.top);
+  showTooltip(t('demoClickRun'), btnRect.left + btnRect.width / 2, btnRect.top);
   await wait(500);
   runBtn.click();
 
@@ -212,61 +214,61 @@ const DEMO_SCRIPT = [
   // ═══════════════════════════════════════════════
 
   // 0. 开场
-  { action: "center", text: "Agent Evaluation Platform — 企业 AI 助手的 agent 质量门控", wait: 3000 },
+  { action: "center", text: () => t('demoIntro'), wait: 3000 },
 
   // 1. 进入 Playground
   { action: "nav", page: "playground" },
   { action: "waitForPage", page: "playground" },
   { action: "wait", ms: 1200 },
-  { action: "center", text: "输入 query,agent 会自动执行 6 步管线评估", wait: 2000 },
+  { action: "center", text: () => t('demoQueryIntro'), wait: 2000 },
 
-  // ── 示例 1:幻觉补全 ──────��──────────────────
-  { action: "announce", text: "示例 1/6: 幻觉补全 — LLM 复述了被 DLP 截断的内容", wait: 2200 },
-  { action: "runQuery", query: "张三最近表现", wait: 9000 },
-  { action: "pointGate", text: "Gate: BLOCKED — DLP 检测到 LLM 输出了被截断的「绩效 A」「涨薪 8%」", wait: 3500 },
+  // ── 示例 1:幻觉补全 ─────────────────────────
+  { action: "announce", text: () => `${t('demoExample')} 1/6: ${t('demoExample1')}`, wait: 2200 },
+  { action: "runQuery", queryIndex: 0, wait: 9000 },
+  { action: "pointGate", text: () => t('demoGateBlocked1'), wait: 3500 },
 
   // ── 示例 2:正常 PASS ─────────────────────────
-  { action: "announce", text: "示例 2/6: 正常 PASS — 所有评估通过", wait: 2200 },
-  { action: "runQuery", query: "上周我们组完成了哪些项目", wait: 9000 },
-  { action: "pointGate", text: "Gate: PASS — 7 维评估全部 ✅", wait: 3500 },
+  { action: "announce", text: () => `${t('demoExample')} 2/6: ${t('demoExample2')}`, wait: 2200 },
+  { action: "runQuery", queryIndex: 1, wait: 9000 },
+  { action: "pointGate", text: () => t('demoGatePass'), wait: 3500 },
 
   // ── 示例 3:跨租户越权 ─────────────────────────
   // 注意: tenant 必须保持非 EU(contoso)才命中"跨租户访问"
   //   mail-C-eu-only 的 owner = compliance@contoso-eu
   //   当 tenant=contoso     → ownerTenant(contoso-eu) ≠ tenant.id(contoso)     → BLOCKED ✅
   //   当 tenant=contoso-eu  → ownerTenant(contoso-eu) === tenant.id(contoso-eu) → PASS ❌(旧 demo 反着的 bug)
-  { action: "announce", text: "示例 3/6: 跨租户越权 — Contoso 租户试图访问 EU 数据", wait: 2200 },
-  { action: "selectOption", id: "tenantId", value: "contoso", text: "确认当前 Tenant: Contoso (非 EU)", wait: 1400 },
-  { action: "runQuery", query: "EU 合规审计近况", wait: 9000 },
-  { action: "pointGate", text: "Gate: BLOCKED — source owner=contoso-eu ≠ tenant=contoso,跨租户访问被拒", wait: 3500 },
+  { action: "announce", text: () => `${t('demoExample')} 3/6: ${t('demoExample3')}`, wait: 2200 },
+  { action: "selectOption", id: "tenantId", value: "contoso", text: () => t('demoConfirmTenant'), wait: 1400 },
+  { action: "runQuery", queryIndex: 2, wait: 9000 },
+  { action: "pointGate", text: () => t('demoGateBlocked3'), wait: 3500 },
 
   // ── 示例 4:Source Scoping(type 越权) ──────────────
-  { action: "announce", text: "示例 4/6: Source Scoping — 1P Agent 访问 people 类型被拒", wait: 2200 },
-  { action: "selectOption", id: "agentId", value: "my-sales-summarizer-v3", text: "确认 Agent: Sales Summarizer (1P)", wait: 1000 },
-  { action: "runQuery", query: "员工绩效列表", wait: 9000 },
-  { action: "pointGate", text: "Gate: BLOCKED — 1P Agent 的 allowedSources 不含 people 类型", wait: 3500 },
+  { action: "announce", text: () => `${t('demoExample')} 4/6: ${t('demoExample4')}`, wait: 2200 },
+  { action: "selectOption", id: "agentId", value: "my-sales-summarizer-v3", text: () => t('demoConfirmAgent'), wait: 1000 },
+  { action: "runQuery", queryIndex: 3, wait: 9000 },
+  { action: "pointGate", text: () => t('demoGateBlocked4'), wait: 3500 },
 
   // ── 示例 5:Latency 超时 ──────────────────────
   // fixture 显式声明 latency_ms: 8000,超过 5s 阈值 → latency FAIL
   // accuracy 已通过(列表编号不再被误判为幻觉数字)→ 7 维里只有 latency 挂
   // 这正好是平台的卖点:精确归因,不会因为"输出看着像编的"就误伤
-  { action: "announce", text: "示例 5/6: Latency 超时 — 响应 8 秒,超过 5 秒 P95 阈值", wait: 2200 },
-  { action: "runQuery", query: "帮我写一份详细的技术方案文档", wait: 9000 },
-  { action: "pointGate", text: "Gate: BLOCKED — 仅 latency 失败;accuracy 等 6 维仍通过,精确归因不误伤", wait: 3500 },
+  { action: "announce", text: () => `${t('demoExample')} 5/6: ${t('demoExample5')}`, wait: 2200 },
+  { action: "runQuery", queryIndex: 4, wait: 9000 },
+  { action: "pointGate", text: () => t('demoGateBlocked5'), wait: 3500 },
 
-  // ── 示例 6:Cost 超预算(��文) ──────────────────
-  { action: "announce", text: "示例 6/6: Cost 超预算(长文) — 5100 tokens,质量与成本双双告警", wait: 2200 },
-  { action: "runQuery", query: "写一篇长文", wait: 9000 },
-  { action: "pointGate", text: "Gate: BLOCKED — Cost 5100 tokens + Quality 检测到重复内容", wait: 3500 },
+  // ── 示例 6:Cost 超预算(长文) ──────────────────
+  { action: "announce", text: () => `${t('demoExample')} 6/6: ${t('demoExample6')}`, wait: 2200 },
+  { action: "runQuery", queryIndex: 5, wait: 9000 },
+  { action: "pointGate", text: () => t('demoGateBlocked6'), wait: 3500 },
 
   // ═══════════════════════════════════════════════
   //  第二部分:Evidence Pack(约 15 秒)
   // ═══════════════════════════════════════════════
 
-  { action: "pointEvPack", text: "每次评估都生成 Evidence Pack — 合规官可直接签字的审计记录", wait: 2500 },
+  { action: "pointEvPack", text: () => t('demoEvPack1'), wait: 2500 },
   { action: "scroll", id: "evPackDetails" },
   { action: "wait", ms: 1000 },
-  { action: "pointEvPack", text: "记录了完整决策过程: 拉源 → DLP → LLM → Trust → 评估 → Gate", wait: 3500 },
+  { action: "pointEvPack", text: () => t('demoEvPack2'), wait: 3500 },
 
   // ═══════════════════════════════════════════════
   //  第三部分:Dashboard(约 20 秒)
@@ -275,8 +277,8 @@ const DEMO_SCRIPT = [
   { action: "nav", page: "dashboard" },
   { action: "waitForPage", page: "dashboard" },
   { action: "wait", ms: 1200 },
-  { action: "pointStat", text: "Dashboard — 所有 agent 的整体健康度", wait: 2500 },
-  { action: "pointStat", text: "通过率、24h 趋势、最近失败一目了然", wait: 3500 },
+  { action: "pointStat", text: () => t('demoDash1'), wait: 2500 },
+  { action: "pointStat", text: () => t('demoDash2'), wait: 3500 },
 
   // ═══════════════════════════════════════════════
   //  第四部分:Triage(约 15 秒)
@@ -285,8 +287,8 @@ const DEMO_SCRIPT = [
   { action: "nav", page: "triage" },
   { action: "waitForPage", page: "triage" },
   { action: "wait", ms: 1200 },
-  { action: "pointTriage", text: "Triage — 失败自动分类 + 修复草稿", wait: 2500 },
-  { action: "pointTriage", text: "从「翻 trace 找根因」降到「审草稿决定采纳」", wait: 3500 },
+  { action: "pointTriage", text: () => t('demoTriage1'), wait: 2500 },
+  { action: "pointTriage", text: () => t('demoTriage2'), wait: 3500 },
 
   // ═══════════════════════════════════════════════
   //  第五部分:Drift(约 15 秒)
@@ -295,16 +297,16 @@ const DEMO_SCRIPT = [
   { action: "nav", page: "drift" },
   { action: "waitForPage", page: "drift" },
   { action: "wait", ms: 1200 },
-  { action: "pointDrift", text: "Drift — 跨时间 / 模型 / 租户的通过率漂移", wait: 2500 },
-  { action: "pointDrift", text: "平台先于客户发现衰退:告警 + 候选根因", wait: 3500 },
+  { action: "pointDrift", text: () => t('demoDrift1'), wait: 2500 },
+  { action: "pointDrift", text: () => t('demoDrift2'), wait: 3500 },
 
   // ═══════════════════════════════════════════════
   //  结尾(约 5 秒)
   // ═══════════════════════════════════════════════
 
   { action: "clearHighlights" },
-  { action: "center", text: "6 步管线 · 7 维评估 · Evidence Pack · 自动 Triage · Drift 监控", wait: 2800 },
-  { action: "center", text: "Agent Evaluation Platform — 让每个 agent 的回答都可审计", wait: 2800 },
+  { action: "center", text: () => t('demoSummary1'), wait: 2800 },
+  { action: "center", text: () => t('demoSummary2'), wait: 2800 },
 ];
 
 async function runDemo() {
@@ -323,17 +325,19 @@ async function runDemo() {
       currentPage++;
       setProgress((currentPage / totalPages) * 100);
 
+      // Resolve text if it's a function (i18n)
+      const text = typeof step.text === "function" ? step.text() : step.text;
+
       switch (step.action) {
         case "center":
-          await moveToCenter(step.text, step.wait || 2000);
+          await moveToCenter(text, step.wait || 2000);
           break;
         case "announce":
-          await moveToCenter(step.text, step.wait || 2000);
-          // 顺便高亮当前 demo 主题 — 通过文本里带"示例 N/6"匹配 pill
-          const m = step.text.match(/示例\s*(\d)\/(\d)/);
+          await moveToCenter(text, step.wait || 2000);
+          // 顺便高亮当前 demo 主题 — 通过文本里带"示例/Example N/6"匹配 pill
+          const m = text.match(/(?:示例|Example)\s*(\d)\/(\d)/);
           if (m) {
-            const order = ["张三最近表现", "上周我们组完成了哪些项目", "EU 合规审计近况", "员工绩效列表", "帮我写一份详细的技术方案文档", "写一篇长文"];
-            highlightExample(order[parseInt(m[1]) - 1]);
+            highlightExample(exampleQueries()[parseInt(m[1]) - 1]);
           }
           break;
         case "nav":
@@ -345,39 +349,41 @@ async function runDemo() {
           await waitForPage(step.page, step.max || 4000);
           break;
         case "click":
-          await moveAndClick(step.id, step.text, step.wait || 1000);
+          await moveAndClick(step.id, text, step.wait || 1000);
           break;
         case "selectOption":
-          await selectOption(step.id, step.value, step.text, step.wait || 500);
+          await selectOption(step.id, step.value, text, step.wait || 500);
           break;
-        case "runQuery":
-          await runQuery(step.query, step.wait || 9000);
+        case "runQuery": {
+          const q = step.queryIndex != null ? exampleQueries()[step.queryIndex] : step.query;
+          await runQuery(q, step.wait || 9000);
           break;
+        }
         case "pointGate": {
           const gateBadge = $el("resultHead")?.querySelector(".gate-badge");
-          if (gateBadge) await pointTo(gateBadge, step.text, step.wait || 3000);
-          else await moveToCenter(step.text, step.wait || 3000);
+          if (gateBadge) await pointTo(gateBadge, text, step.wait || 3000);
+          else await moveToCenter(text, step.wait || 3000);
           break;
         }
         case "pointEvPack":
-          await pointTo("#evPackDetails", step.text, step.wait || 2500);
+          await pointTo("#evPackDetails", text, step.wait || 2500);
           break;
         case "pointStat": {
           const stat = $(".stat-tile") || $(".stat-grid");
-          if (stat) await pointTo(stat, step.text, step.wait || 2500);
-          else await moveToCenter(step.text, step.wait || 2500);
+          if (stat) await pointTo(stat, text, step.wait || 2500);
+          else await moveToCenter(text, step.wait || 2500);
           break;
         }
         case "pointTriage": {
-          const t = $(".card h2") || $el("triageContent");
-          if (t) await pointTo(t, step.text, step.wait || 2500);
-          else await moveToCenter(step.text, step.wait || 2500);
+          const el = $(".card h2") || $el("triageContent");
+          if (el) await pointTo(el, text, step.wait || 2500);
+          else await moveToCenter(text, step.wait || 2500);
           break;
         }
         case "pointDrift": {
           const d = $el("driftContent")?.querySelector(".alert") || $el("driftContent");
-          if (d) await pointTo(d, step.text, step.wait || 2500);
-          else await moveToCenter(step.text, step.wait || 2500);
+          if (d) await pointTo(d, text, step.wait || 2500);
+          else await moveToCenter(text, step.wait || 2500);
           break;
         }
         case "clearHighlights":

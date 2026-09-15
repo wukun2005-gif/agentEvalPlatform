@@ -4,6 +4,8 @@
  * - Provider 卡片可拖拽排序（localStorage 持久化，appUIRefiner 同款机制）
  * - 已勾选模型构成回退链，可拖拽排序；「设默认」= 置顶链首（appUIRefiner 同款语义）
  */
+import { t, apiFetch } from "../i18n.js";
+
 (function() {
   const PROVIDER_ORDER_KEY = "agent-evaluator-provider-order";
   const FORMS_DRAFT_KEY = "agent-evaluator-forms-draft";
@@ -100,7 +102,7 @@
     
     async loadCatalog() {
       try {
-        const res = await fetch("/api/models").then(r => r.json());
+        const res = await apiFetch("/api/models").then(r => r.json());
         this.catalog = res.catalog || {};
       } catch {
         this.catalog = {};
@@ -113,8 +115,8 @@
       
       try {
         const [presetRes, savedRes] = await Promise.all([
-          fetch("/api/providers/presets").then(r => r.json()),
-          fetch("/api/settings").then(r => r.json()),
+          apiFetch("/api/providers/presets").then(r => r.json()),
+          apiFetch("/api/settings").then(r => r.json()),
         ]);
         
         this.presets = presetRes.presets || [];
@@ -145,7 +147,7 @@
         this.loaded = true;
         this.renderProviderList();
       } catch (e) {
-        this.showToast(false, `加载配置失败：${e.message}`);
+        this.showToast(false, `${t('saveError')}${e.message}`);
         this.loaded = true;
       }
     }
@@ -188,37 +190,37 @@
         
         details.innerHTML = `
           <summary draggable="true" class="${this.dragOverProviderIdx === idx ? "drag-over" : ""}">
-            <span class="drag-handle" title="拖拽调整卡片顺序">⠿</span>
+            <span class="drag-handle" title="${t('dragCardTitle')}">⠿</span>
             <label onclick="event.stopPropagation()">
               <input type="checkbox" ${f.enabled ? "checked" : ""} />
             </label>
             <b>${p.displayName}</b>
             <span class="provider-desc">${p.desc}</span>
-            ${v ? `<span class="verify-badge ${v.ok ? "ok" : "err"}">${v.ok ? "已验证 ✓" : "验证失败"}</span>` : ""}
+            ${v ? `<span class="verify-badge ${v.ok ? "ok" : "err"}">${v.ok ? t('verified') : t('verifyError')}</span>` : ""}
           </summary>
           <div class="provider-body">
             <label class="row">
-              <span>Base URL</span>
+              <span>${t('baseUrl')}</span>
               <input type="text" data-field="baseUrl" value="${f.baseUrl || ""}" />
             </label>
             <label class="row">
-              <span>API Key</span>
-              <input type="password" data-field="apiKey" placeholder="${p.keyPlaceholder}" value="${f.apiKey || ""}" />
+              <span>${t('apiKey')}</span>
+              <input type="password" data-field="apiKey" placeholder="${t('apiKeyPlaceholder')}" value="${f.apiKey || ""}" />
             </label>
             <div class="row">
-              <span>可选模型（勾选加入回退链）</span>
-              <input class="model-search" placeholder="搜索模型，如 qwen3.8" value="${this.modelQuery[p.id] || ""}" />
+              <span>${t('optionalModels')}</span>
+              <input class="model-search" placeholder="${t('modelSearch')}" value="${this.modelQuery[p.id] || ""}" />
               <button class="ghost small load-models-btn" ${this.loadingModel === p.id ? "disabled" : ""}>
-                ${this.loadingModel === p.id ? "获取中…" : "在线拉取"}
+                ${this.loadingModel === p.id ? t('fetchingModels') : t('fetchModels')}
               </button>
             </div>
             <div class="model-grid">
-              ${models.length === 0 ? '<span class="hint">暂无模型目录，填 Key 后可在线拉取</span>' : this.renderModelList(p.id, models, chain)}
+              ${models.length === 0 ? `<span class="hint">${t('noModelDirectory')}</span>` : this.renderModelList(p.id, models, chain)}
             </div>
-            ${models.length > 0 ? `<div class="model-count">显示 ${this.getFilteredModels(p.id).length} / ${models.length} 个模型</div>` : ""}
+            ${models.length > 0 ? `<div class="model-count">${t('modelCount')} ${this.getFilteredModels(p.id).length} ${t('modelCountOf')} ${models.length} ${t('modelCountModels')}</div>` : ""}
             ${chain.length > 0 ? this.renderChainBox(p.id, chain, f) : ""}
             <div class="provider-actions">
-              <button class="ghost small verify-btn">验证模型连通</button>
+              <button class="ghost small verify-btn">${t('verifyModel')}</button>
               ${v && !v.ok ? `<span class="verify-err">${v.error}</span>` : ""}
             </div>
           </div>
@@ -233,7 +235,7 @@
       const filtered = this.getFilteredModels(pid);
       if (models.length > 0 && filtered.length === 0) {
         const q = (this.modelQuery[pid] || "").trim();
-        return `<span class="hint">无匹配「${q}」的模型（共 ${models.length} 个）。可尝试更短关键字，或点「在线拉取」获取最新列表。</span>`;
+        return `<span class="hint">${t('noMatchingModels')}「${q}」${t('noMatchingModelsTry')} ${models.length} ${t('noMatchingModelsTryEnd')}</span>`;
       }
       
       return filtered.map(m => {
@@ -243,10 +245,10 @@
           <label class="model-item ${checked ? "checked" : ""}">
             <input type="checkbox" ${checked ? "checked" : ""} data-model="${m}" />
             <span class="model-id">${this.highlight(m, this.modelQuery[pid] || "")}</span>
-            ${info?.supportsStructuredOutput ? '<span class="cap" title="支持结构化输出（DSL 管线推荐）">SO</span>' : ""}
-            ${info?.supportsFunctionCalling ? '<span class="cap" title="支持函数调用">FC</span>' : ""}
-            ${this.forms[pid].defaultModelId === m ? '<span class="cap default">默认</span>' : ""}
-            ${checked && this.forms[pid].defaultModelId !== m ? `<button class="ghost small set-default-btn" data-model="${m}">设默认</button>` : ""}
+            ${info?.supportsStructuredOutput ? `<span class="cap" title="${t('supportsSO')}">SO</span>` : ""}
+            ${info?.supportsFunctionCalling ? `<span class="cap" title="${t('supportsFC')}">FC</span>` : ""}
+            ${this.forms[pid].defaultModelId === m ? `<span class="cap default">${t('defaultModel')}</span>` : ""}
+            ${checked && this.forms[pid].defaultModelId !== m ? `<button class="ghost small set-default-btn" data-model="${m}">${t('setDefault')}</button>` : ""}
           </label>
         `;
       }).join("");
@@ -256,16 +258,16 @@
       return `
         <div class="chain-box">
           <div class="chain-title">
-            回退链（${chain.length} 项，可拖拽排序）：带「默认」标记的模型为管线首选；其余按此顺序依次作为回退
+            ${t('fallbackChain')}（${chain.length} ${t('fallbackChainItems')}）${t('fallbackChainDesc')}
           </div>
           <ul class="chain-list">
             ${chain.map((m, ci) => `
               <li class="chain-item ${this.dragOverChainIdx === ci ? "drag-over" : ""}" data-index="${ci}" draggable="true">
-                <span class="drag-handle" title="拖拽调整回退顺序">⠿</span>
+                <span class="drag-handle" title="${t('dragChainTitle')}">⠿</span>
                 <span class="chain-index">${ci + 1}</span>
                 <span class="model-id">${m}</span>
-                ${f.defaultModelId === m ? '<span class="cap default">默认</span>' : ""}
-                ${f.defaultModelId !== m ? `<button class="ghost small set-default-btn" data-model="${m}">设默认</button>` : ""}
+                ${f.defaultModelId === m ? `<span class="cap default">${t('defaultModel')}</span>` : ""}
+                ${f.defaultModelId !== m ? `<button class="ghost small set-default-btn" data-model="${m}">${t('setDefault')}</button>` : ""}
               </li>
             `).join("")}
           </ul>
@@ -355,10 +357,10 @@
         const models = this.getSelectableModels(pid);
         const chain = this.forms[pid].modelIds;
         modelGrid.innerHTML = models.length === 0 
-          ? '<span class="hint">暂无模型目录，填 Key 后可在线拉取</span>' 
+          ? `<span class="hint">${t('noModelDirHint')}</span>` 
           : this.renderModelList(pid, models, chain);
         if (modelCount) {
-          modelCount.textContent = `显示 ${this.getFilteredModels(pid).length} / ${models.length} 个模型`;
+          modelCount.textContent = `${t('modelCount')} ${this.getFilteredModels(pid).length} ${t('modelCountOf')} ${models.length} ${t('modelCountModels')}`;
         }
         // 重新绑定模型勾选事件
         this.bindModelEvents(card, pid);
@@ -485,7 +487,7 @@
       if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
       this.autoSaveTimer = setTimeout(() => {
         this.persist(true).catch((e) => {
-          this.showToast(false, `自动保存失败：${e.message}`);
+          this.showToast(false, `${t('autoSaveError')}${e.message}`);
         });
       }, 800);
     }
@@ -493,7 +495,7 @@
     async fetchModels(pid) {
       const f = this.forms[pid];
       if (!f.apiKey) {
-        this.showToast(false, "请先填写该 Provider 的 API Key，再在线拉取模型列表");
+        this.showToast(false, t('keyRequired'));
         return;
       }
       
@@ -501,7 +503,7 @@
       this.renderProviderList();
       
       try {
-        const res = await fetch(`/api/providers/${pid}/models`, {
+        const res = await apiFetch(`/api/providers/${pid}/models`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ apiKey: f.apiKey, baseUrl: f.baseUrl || undefined }),
@@ -509,12 +511,12 @@
         
         if (res.ok) {
           this.liveModels[pid] = res.models || [];
-          this.showToast(true, `${pid} 在线获取到 ${res.models.length} 个模型`);
+          this.showToast(true, `${pid} ${t('modelsLoaded')} ${res.models.length} ${t('modelCountModels')}`);
         } else {
-          this.showToast(false, `获取失败：${res.error || `HTTP ${res.status}`}`);
+          this.showToast(false, `${t('modelsFailed')}${res.error || `HTTP ${res.status}`}`);
         }
       } catch (e) {
-        this.showToast(false, `请求失败：${e instanceof Error ? e.message : String(e)}（请确认 server 正在运行，终端里 npm run dev 是否正常）`);
+        this.showToast(false, `${t('modelsRequestFailed')}${e instanceof Error ? e.message : String(e)}${t('serverCheckHint')}`);
       } finally {
         this.loadingModel = null;
         this.renderProviderList();
@@ -525,22 +527,22 @@
       const f = this.forms[pid];
       const modelId = f.defaultModelId || f.modelIds[0];
       if (!f.apiKey || !modelId) {
-        this.showToast(false, "请先填写 API Key 并勾选模型");
+        this.showToast(false, t('keyAndModelRequired'));
         return;
       }
       
       try {
-        const res = await fetch(`/api/providers/${pid}/verify-model`, {
+        const res = await apiFetch(`/api/providers/${pid}/verify-model`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ apiKey: f.apiKey, baseUrl: f.baseUrl || undefined, modelId }),
         }).then(r => r.json());
         
         this.verifies[pid] = { ok: Boolean(res.ok), error: res.error };
-        if (res.ok) this.showToast(true, `${pid}/${modelId} 验证通过`);
+        if (res.ok) this.showToast(true, `${pid}/${modelId} ${t('verifySuccess')}`);
         this.renderProviderList();
       } catch (e) {
-        this.showToast(false, `验证请求失败：${e instanceof Error ? e.message : String(e)}`);
+        this.showToast(false, `${t('verifyFailed')}${e instanceof Error ? e.message : String(e)}`);
       }
     }
     
@@ -580,48 +582,48 @@
     }
     
     async persist(silent) {
-      const res = await fetch("/api/settings/providers", {
+      const res = await apiFetch("/api/settings/providers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(this.buildPayload()),
       }).then(r => r.json());
       if (!res.ok) throw new Error(res.error || `HTTP ${res.status}`);
       if (silent) this.autoSavedAt = new Date();
-      else this.showToast(true, "已保存。回到应用即可开始对话。");
+      else this.showToast(true, t('saved'));
     }
     
     async save() {
       this.saving = true;
       this.saveBtn.disabled = true;
-      this.saveBtn.textContent = "保存中…";
+      this.saveBtn.textContent = t('saving');
       
       try {
         await this.persist(false);
         setTimeout(() => location.reload(), 800);
       } catch (e) {
-        this.showToast(false, `保存失败：${e.message}`);
+        this.showToast(false, `${t('saveError')}${e.message}`);
       } finally {
         this.saving = false;
         this.saveBtn.disabled = false;
-        this.saveBtn.textContent = "💾 Save All";
+        this.saveBtn.textContent = t('saveAll');
       }
     }
     
     async reset() {
-      if (!confirm("确认清空所有 LLM 配置? 这会删除 user_settings 中所有 provider_* 和 llm_global")) return;
+      if (!confirm(t('resetConfirmMsg'))) return;
       
       try {
         await fetch("/api/settings/reset", { method: "POST" });
-        this.showToast(true, "已清空 — 下次请求回 fixture 模式");
+        this.showToast(true, t('resetSuccess'));
         setTimeout(() => location.reload(), 800);
       } catch (e) {
-        this.showToast(false, `清空失败：${e.message}`);
+        this.showToast(false, `${t('resetError')}${e.message}`);
       }
     }
     
     async loadAllModels() {
       this.loadModelsBtn.disabled = true;
-      this.loadModelsBtn.textContent = "加载中…";
+      this.loadModelsBtn.textContent = t('modelsLoading');
       
       for (const p of this.presets) {
         const f = this.forms[p.id];
@@ -631,7 +633,7 @@
       }
       
       this.loadModelsBtn.disabled = false;
-      this.loadModelsBtn.textContent = "🔄 Load Live Models";
+      this.loadModelsBtn.textContent = t('loadLiveModels');
     }
     
     showToast(ok, text) {

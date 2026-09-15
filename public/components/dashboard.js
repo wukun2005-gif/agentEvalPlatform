@@ -1,14 +1,16 @@
 // Dashboard page — 跨 agent 的健康度总览(Phase C: 加 "Run all fixtures" 一键充实)
 
+import { t, apiFetch } from "../i18n.js";
+
 export async function renderDashboard({ mount, getTenantId, getAgentId }) {
   mount.innerHTML = `<div class="page">
-    <h1>📊 Agent Dashboard</h1>
-    <p class="page-sub">当前 tenant / agent 的健康度、最近失败</p>
+    <h1>${t('dashboardTitle')}</h1>
+    <p class="page-sub">${t('dashboardSubtitle')}</p>
     <div style="display: flex; gap: 10px; align-items: center;">
-      <button id="runFixturesBtn" class="primary">▶ Run all fixtures(充实 dashboard)</button>
+      <button id="runFixturesBtn" class="primary">${t('runFixtures')}</button>
       <span id="runFixturesStatus" style="color: var(--fg-dim); font-size: 12px;"></span>
     </div>
-    <div id="dashContent">Loading…</div>
+    <div id="dashContent">${t('triageLoading')}</div>
   </div>`;
 
   document.getElementById("runFixturesBtn").addEventListener("click", runFixtures);
@@ -18,21 +20,21 @@ export async function renderDashboard({ mount, getTenantId, getAgentId }) {
     const btn = document.getElementById("runFixturesBtn");
     const status = document.getElementById("runFixturesStatus");
     btn.disabled = true;
-    status.textContent = "Running…";
-    const res = await fetch("/api/run-fixtures", { method: "POST" }).then((r) => r.json());
-    status.textContent = `✅ 跑了 ${res.ran} 个 fixture,刷新中…`;
+    status.textContent = t('fixturesRunning');
+    const res = await apiFetch("/api/run-fixtures", { method: "POST" }).then((r) => r.json());
+    status.textContent = `${t('fixturesDone')} ${res.ran} ${t('fixturesUnit')}`;
     await refresh();
     btn.disabled = false;
-    status.textContent = `✅ 上次: 跑了 ${res.ran} 个 fixture`;
+    status.textContent = `${t('fixturesLast')} ${res.ran} ${t('fixturesUnitLast')}`;
   }
 
   async function refresh() {
     const agentId = getAgentId();
     const tenantId = getTenantId();
     const [info, history, failures] = await Promise.all([
-      fetch("/api/info").then((r) => r.json()),
-      fetch(`/api/history?tenantId=${tenantId}&agentId=${agentId}&limit=200`).then((r) => r.json()),
-      fetch("/api/failures?limit=10").then((r) => r.json()),
+      apiFetch("/api/info").then((r) => r.json()),
+      apiFetch(`/api/history?tenantId=${tenantId}&agentId=${agentId}&limit=200`).then((r) => r.json()),
+      apiFetch("/api/failures?limit=10").then((r) => r.json()),
     ]);
 
     const total = history.length;
@@ -47,29 +49,29 @@ export async function renderDashboard({ mount, getTenantId, getAgentId }) {
     document.getElementById("dashContent").innerHTML = `
       <div class="stat-grid">
         <div class="stat-tile">
-          <div class="stat-label">Total Evals (tenant)</div>
+          <div class="stat-label">${t('totalEvals')}</div>
           <div class="stat-value">${total}</div>
         </div>
         <div class="stat-tile">
-          <div class="stat-label">Pass Rate (lifetime)</div>
+          <div class="stat-label">${t('passRateLifetime')}</div>
           <div class="stat-value ${passRate >= 95 ? "pass" : passRate >= 80 ? "warn" : "block"}">${passRate}%</div>
         </div>
         <div class="stat-tile">
-          <div class="stat-label">Pass Rate (24h)</div>
+          <div class="stat-label">${t('passRate24h')}</div>
           <div class="stat-value ${pass24 >= 95 ? "pass" : pass24 >= 80 ? "warn" : "block"}">${pass24.toFixed(1)}%</div>
         </div>
         <div class="stat-tile">
-          <div class="stat-label">Recent Failures</div>
+          <div class="stat-label">${t('recentFailures')}</div>
           <div class="stat-value ${blocked > 0 ? "block" : "pass"}">${failures.length}</div>
         </div>
       </div>
 
       <div class="card">
-        <h2>Recent Evidence (${tenantId} · ${agentId})</h2>
-        ${total === 0 ? '<p style="color: var(--fg-dim);">暂无 evidence。点上方 "Run all fixtures" 一键充实,或去 Replay 跑 query。</p>' : `
+        <h2>${t('recentEvidence')} (${tenantId} · ${agentId})</h2>
+        ${total === 0 ? `<p style="color: var(--fg-dim);">${t('noEvidence')}</p>` : `
         <table>
           <thead><tr>
-            <th>Time</th><th>Query</th><th>Decision</th><th>Trust</th><th>Failed Dims</th><th></th>
+            <th>${t('time')}</th><th>${t('query')}</th><th>${t('decision')}</th><th>${t('trust')}</th><th>${t('failedDims')}</th><th></th>
           </tr></thead>
           <tbody>
             ${history.slice(0, 20).map((e) => {
@@ -80,7 +82,7 @@ export async function renderDashboard({ mount, getTenantId, getAgentId }) {
                 <td><span class="gate-badge ${e.gate_decision === "PASS" ? "pass" : "blocked"}">${e.gate_decision}</span></td>
                 <td>${(e.trust_score * 100).toFixed(0)}%</td>
                 <td style="color: var(--block);">${failed}</td>
-                <td><a href="#/compliance?id=${e.evidence_id}">查看 Evidence →</a></td>
+                <td><a href="#/compliance?id=${e.evidence_id}">${t('viewEvidence')}</a></td>
               </tr>`;
             }).join("")}
           </tbody>

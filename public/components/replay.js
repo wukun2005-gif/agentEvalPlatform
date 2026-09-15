@@ -1,33 +1,35 @@
 // Playground page — 单 query 完整管线
 
 import { startDemo } from "./demo-overlay.js";
+import { t, apiFetch, exampleQueries, hallucinationSpans } from "../i18n.js";
 
 export async function renderReplay({ mount, getTenantId, getAgentId }) {
+  const queries = exampleQueries();
   mount.innerHTML = `
     <div class="page">
       <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
-        <h1 style="margin: 0;">▶ Playground</h1>
-        <button id="demoBtn" class="primary" style="font-size: 12px; padding: 4px 12px;">▶ 一键演示</button>
+        <h1 style="margin: 0;">${t('playgroundTitle')}</h1>
+        <button id="demoBtn" class="primary" style="font-size: 12px; padding: 4px 12px;">${t('playgroundDemoBtn')}</button>
       </div>
-      <p class="page-sub">输入 query → <b>逐帧</b>走完 6 步管线 → 看到 Gate 决策 + Evidence Pack</p>
+      <p class="page-sub">${t('playgroundSubtitle')}</p>
 
       <div class="card">
         <div class="query-row">
-          <input id="qInput" type="text" placeholder="输入 query, 或点下方示例" />
-          <button id="runBtn" class="primary">Run ▶</button>
+          <input id="qInput" type="text" placeholder="${t('queryPlaceholder')}" />
+          <button id="runBtn" class="primary">${t('runBtn')}</button>
         </div>
 
         <div class="example-pills">
-          <span style="color: var(--fg-dim); font-size: 12px; align-self: center;">示例:</span>
-          <button data-q="张三最近表现">幻觉补全</button>
-          <button data-q="上周我们组完成了哪些项目">正常 PASS</button>
-          <button data-q="EU 合规审计近况">跨租户越权</button>
-          <button data-q="员工绩效列表">Source Scoping</button>
-          <button data-q="帮我写一份详细的技术方案文档">Latency 超时</button>
-          <button data-q="写一篇长文">Cost 超预算</button>
+          <span style="color: var(--fg-dim); font-size: 12px; align-self: center;">${t('exampleLabel')}</span>
+          <button data-q="${queries[0]}">${t('exampleHallucination')}</button>
+          <button data-q="${queries[1]}">${t('exampleNormalPass')}</button>
+          <button data-q="${queries[2]}">${t('exampleCrossTenant')}</button>
+          <button data-q="${queries[3]}">${t('exampleSourceScoping')}</button>
+          <button data-q="${queries[4]}">${t('exampleLatency')}</button>
+          <button data-q="${queries[5]}">${t('exampleCost')}</button>
         </div>
         <p style="color: var(--fg-dim); font-size: 11px; margin-top: 8px;">
-          💡 示例使用预设 fixture（确保演示效果）；自定义 query 调用你配置的 LLM
+          ${t('exampleTip')}
         </p>
 
       </div>
@@ -36,7 +38,7 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
         <div id="resultHead" style="margin-bottom: 12px;"></div>
         <ol class="pipeline" id="pipeline"></ol>
         <details id="evPackDetails" open>
-          <summary>📋 Evidence Pack (审计 JSON)</summary>
+          <summary>${t('evPackJsonAudit')}</summary>
           <pre id="evidenceJson"></pre>
         </details>
       </div>
@@ -63,7 +65,7 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
     if (!a.dataset.expandLabel) a.dataset.expandLabel = a.textContent;
     const willExpand = tail.hidden;
     tail.hidden = !willExpand;
-    a.textContent = willExpand ? "收起" : a.dataset.expandLabel;
+    a.textContent = willExpand ? t('collapse') : a.dataset.expandLabel;
   });
 
   async function run() {
@@ -71,15 +73,15 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
     if (!query) return;
     const runBtn = document.getElementById("runBtn");
 
-    runBtn.disabled = true; runBtn.textContent = "Streaming…";
+    runBtn.disabled = true; runBtn.textContent = t('streaming');
     const card = document.getElementById("resultCard");
     card.hidden = false;
-    document.getElementById("resultHead").innerHTML = `<span class="gate-badge soft">RUNNING…</span> <span style="color: var(--fg-dim); font-size: 12px;">6 步管线逐帧执行中</span>`;
+    document.getElementById("resultHead").innerHTML = `<span class="gate-badge soft">${t('running')}</span> <span style="color: var(--fg-dim); font-size: 12px;">${t('runningMeta')}</span>`;
     const ol = document.getElementById("pipeline");
     ol.innerHTML = "";
-    document.getElementById("evidenceJson").textContent = "(等待管线完成…)";
+    document.getElementById("evidenceJson").textContent = t('waitingPipeline');
 
-    const res = await fetch("/api/run-stream", {
+    const res = await apiFetch("/api/run-stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, agentId: getAgentId(), tenantId: getTenantId() }),
@@ -104,12 +106,12 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
         } else if (payload.kind === "done") {
           renderDone(payload, steps);
         } else if (payload.kind === "error") {
-          alert("Pipeline error: " + payload.error);
+          alert(t('pipelineError') + payload.error);
         }
       }
     }
 
-    runBtn.disabled = false; runBtn.textContent = "Run ▶";
+    runBtn.disabled = false; runBtn.textContent = t('runBtn');
   }
 
   function appendStep(steps) {
@@ -128,7 +130,7 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
   function renderDone(done, steps) {
     const gate = done.gate;
     const badge = `<span class="gate-badge ${gate.decision === "PASS" ? "pass" : gate.decision === "BLOCKED" ? "blocked" : "soft"}">${gate.decision}</span>`;
-    const meta = `wall ${done.wall_ms}ms · ${done.evaluations.length} 维评估 · model=${done.model || "?"} · failed: ${gate.failed_dimensions.join(", ") || "无"}`;
+    const meta = `${t('wallMs')} ${done.wall_ms}ms · ${done.evaluations.length} ${t('evalsCount')} · ${t('model')}=${done.model || "?"} · ${t('failed')}: ${gate.failed_dimensions.join(", ") || t('none')}`;
     document.getElementById("resultHead").innerHTML = `${badge} <span style="color: var(--fg-dim); font-size: 12px; margin-left: 12px;">${meta}</span>`;
     appendStep(steps);
     document.getElementById("evidenceJson").textContent = JSON.stringify(done.evidence, null, 2);
@@ -138,7 +140,7 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
     switch (step.name) {
       case "pull": {
         const ids = step.data.actual.map((s) => s.id);
-        return `拉到 ${ids.length} 条 source: ${ids.join(", ") || "(无)"}`;
+        return `${t('pulledSources')} ${ids.length} ${t('sources')}: ${ids.join(", ") || `(${t('none')})`}`;
       }
       case "dlp": {
         const log = step.data.ruleLog || [];
@@ -146,13 +148,13 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
         const redacted = step.data.redacted || [];
         const llmInput = step.data.llmInput || "";
         
-        let html = `<b>命中 ${log.length} 条规则</b>`;
+        let html = `<b>${t('hitRules')} ${log.length} ${t('rulesUnit')}</b>`;
         
         if (log.length > 0) {
           html += `<div style="margin-top: 8px;">`;
           log.forEach(r => {
             html += `<div style="font-size: 11px; color: var(--fg-dim); margin: 4px 0;">
-              <span class="redacted">${r.span || r.before}</span> → <span style="color: var(--success);">[已脱敏]</span>
+              <span class="redacted">${r.span || r.before}</span> → <span style="color: var(--success);">${t('redactedLabel')}</span>
               <span style="color: var(--fg-dim);">(${r.rule})</span>
             </div>`;
           });
@@ -161,14 +163,14 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
         
         // 显示原始 vs 截断对比
         if (original.length > 0) {
-          html += `<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--fg-dim); font-size: 12px;">查看原始内容 vs 脱敏后</summary>`;
+          html += `<details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--fg-dim); font-size: 12px;">${t('viewOriginalVsRedacted')}</summary>`;
           original.forEach((src, i) => {
             const origText = src.content || "";
             const redText = redacted[i]?.content || origText;
             html += `<div style="margin-top: 8px; padding: 8px; background: var(--panel); border-radius: 4px; font-size: 11px;">
-              <div><b>来源:</b> ${src.id}</div>
-              <div style="margin-top: 4px;"><b>原始:</b> <span style="color: var(--fg-dim);">${origText.slice(0, 200)}${origText.length > 200 ? '...' : ''}</span></div>
-              <div style="margin-top: 4px;"><b>脱敏后:</b> ${redText.replace(/\[REDACTED\]/g, '<span class="redacted">[REDACTED]</span>').slice(0, 200)}${redText.length > 200 ? '...' : ''}</div>
+              <div><b>${t('sources')}:</b> ${src.id}</div>
+              <div style="margin-top: 4px;"><b>${t('original')}:</b> <span style="color: var(--fg-dim);">${origText.slice(0, 200)}${origText.length > 200 ? '...' : ''}</span></div>
+              <div style="margin-top: 4px;"><b>${t('redacted')}:</b> ${redText.replace(/\[REDACTED\]/g, '<span class="redacted">[REDACTED]</span>').slice(0, 200)}${redText.length > 200 ? '...' : ''}</div>
             </div>`;
           });
           html += `</details>`;
@@ -184,22 +186,24 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
         const COLLAPSE_AT = 280;
         const needsCollapse = out.length > COLLAPSE_AT;
         // 高亮"幻觉补全"特征串(只对截断后的片段生效,不影响性能)
-        const highlight = (s) => s
-          .replace(/绩效 A/g, '<span class="hallucinated">绩效 A</span>')
-          .replace(/涨薪 8%/g, '<span class="hallucinated">涨薪 8%</span>');
+        // 特征串随语言切换:中文高亮 "绩效 A",英文高亮 "Performance A"
+        const highlight = (s) => hallucinationSpans().reduce(
+          (acc, span) => acc.split(span).join(`<span class="hallucinated">${span}</span>`),
+          s
+        );
         const head = highlight(escapeHtml(out.slice(0, COLLAPSE_AT)));
         const tail = highlight(escapeHtml(out.slice(COLLAPSE_AT)));
-        let html = `<b>source:</b> ${escapeHtml(step.data.source || "?")} · <b>model:</b> ${escapeHtml(step.data.model || "?")} · <b>${latencyMs ?? "?"}ms</b>`;
+        let html = `<b>${t('sources')}:</b> ${escapeHtml(step.data.source || "?")} · <b>${t('model')}:</b> ${escapeHtml(step.data.model || "?")} · <b>${latencyMs ?? "?"}ms</b>`;
         if (latencyMs >= 5000) {
-          html += ` <span class="hallucinated" title="P95 target &lt; 5000ms">⚠ 超时</span>`;
+          html += ` <span class="hallucinated" title="P95 target &lt; 5000ms">${t('timeout')}</span>`;
         }
 
         // 显示 LLM 输入 context
         if (llmInput) {
-          html += `\n<details style="margin-top: 6px;"><summary style="cursor: pointer; color: var(--fg-dim); font-size: 11px;">查看 LLM 输入 context (${llmInput.length} chars)</summary>`;
+          html += `\n<details style="margin-top: 6px;"><summary style="cursor: pointer; color: var(--fg-dim); font-size: 11px;">${t('llmInput')} (${llmInput.length} ${t('chars')})</summary>`;
           const inputHead = escapeHtml(llmInput.slice(0, 800));
           const inputTail = escapeHtml(llmInput.slice(800));
-          html += `<div style="margin-top: 4px; padding: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; white-space: pre-wrap; max-height: 240px; overflow: auto;">${inputHead}${inputTail ? `<span class="demo-llm-tail" hidden>${inputTail}</span><a class="demo-llm-more" style="color: var(--accent); cursor: pointer;">…展开 (${llmInput.length - 800} chars)</a>` : ""}</div>`;
+          html += `<div style="margin-top: 4px; padding: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; white-space: pre-wrap; max-height: 240px; overflow: auto;">${inputHead}${inputTail ? `<span class="demo-llm-tail" hidden>${inputTail}</span><a class="demo-llm-more" style="color: var(--accent); cursor: pointer;">${t('expand')} (${llmInput.length - 800} ${t('chars')})</a>` : ""}</div>`;
           html += `</details>`;
         }
 
@@ -208,7 +212,7 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
         html += `\n<div class="llm-output" style="margin-top: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; font-size: 12px; line-height: 1.6; max-height: 240px; overflow: auto;">`;
         html += head;
         if (needsCollapse) {
-          html += `<span class="demo-llm-tail" hidden>${tail}</span><a class="demo-llm-more" style="color: var(--accent); cursor: pointer;">…展开 (${totalLen - COLLAPSE_AT} chars)</a>`;
+          html += `<span class="demo-llm-tail" hidden>${tail}</span><a class="demo-llm-more" style="color: var(--accent); cursor: pointer;">${t('expand')} (${totalLen - COLLAPSE_AT} ${t('chars')})</a>`;
         }
         html += `</div>`;
         return html;
@@ -217,7 +221,7 @@ export async function renderReplay({ mount, getTenantId, getAgentId }) {
       case "evaluate":
         return step.data.map((e) => `${e.passed ? "✅" : "❌"} <b>${e.name}</b>: ${e.reason}`).join("\n");
       case "gate":
-        return `<b>${step.data.decision}</b> · 策略=${step.data.policy} · 失败维度=${step.data.failed_dimensions.join(", ") || "无"}`;
+        return `<b>${step.data.decision}</b> · ${t('policy')}=${step.data.policy} · ${t('failedDimensions')}=${step.data.failed_dimensions.join(", ") || t('none')}`;
       default: return JSON.stringify(step.data).slice(0, 200);
     }
   }
