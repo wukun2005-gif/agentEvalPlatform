@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.bilibili.com/video/BV1neb56EEsp/">📺 完整 Demo 视频</a>
+  <a href="https://www.bilibili.com/video/BV1rGnE6zEAb/">📺 完整 Demo 视频</a>
 </p>
 
 ## Why
